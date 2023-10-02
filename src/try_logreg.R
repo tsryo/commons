@@ -46,9 +46,9 @@ train_pool_test_pp_logreg <- function(imputed_dfs_train_list, test_df, vars_sele
   try_log_debug(0, "*****  @train_pool_test_pp_logreg complete  *****")
   return(ret_list)
 }
-# NOTE: simplify_varnames == T -> DANGEROUS!   remove from function completely... todo
+
 train_and_pool_logreg <- function(imputed_dfs_train_list, vars_selected, fold_cntr=-1, logfile_prefix, with_pooling = T,
-                                  starting_coefficients = NULL, maxit = 500, simplify_varnames = F, verbose = F) {
+                                  starting_coefficients = NULL, maxit = 500, verbose = F) {
   # derive 5 logregs using vars selected on each imputed ds
   list_lrms <- list()
   cur_lrm <- NULL
@@ -58,33 +58,14 @@ train_and_pool_logreg <- function(imputed_dfs_train_list, vars_selected, fold_cn
     #go over factor columns , remove levels not selected
     # compute simple name for leveled vars selected
     vars_selected_simple_names = c()
-    if(simplify_varnames){
-      for(cn in cns(cur_imp_df)){
-        c_v = cur_imp_df[, cn]
-
-        if(is.factor(c_v)){
-          lv_to_remove = c()
-          for(c_lv in levels(c_v)) {
-            c_nm = sprintf("%s%s",cn, c_lv)
-            if(!(c_nm %in% vars_selected))
-              lv_to_remove = c(lv_to_remove, c_lv)
-            else
-              vars_selected_simple_names = c(vars_selected_simple_names, cn)
-          }
-          c_v = droplevels(c_v, exclude = lv_to_remove)
-          c_v
-
-        }
-        else if(cn %in% vars_selected){
-          vars_selected_simple_names = c(vars_selected_simple_names, cn)
-        }
-      }
-      vars_selected_simple_names = uniq(vars_selected_simple_names)
-    } else
-      vars_selected_simple_names = vars_selected
+    vars_selected_simple_names = vars_selected
 
     eq_str <- create_formula_somevars(cur_imp_df, vars_selected_simple_names)
-    if(ncol(cur_imp_df) > 2){
+    nvars = len(vars_selected_simple_names)
+    if(nvars == 0)
+      try_log_error("@train_and_pool_logreg - 0 vars selected", nvars)
+
+    if(ncol(cur_imp_df) > 2 && nvars > 0){
       cur_lrm  <- create_logreg_model(cur_imp_df, eq_str, starting_coefficients = starting_coefficients , maxit = maxit, verbose = verbose)
       list_lrms[[cur_imp_ds_idx]] <- cur_lrm
     }

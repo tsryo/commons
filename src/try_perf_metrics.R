@@ -66,10 +66,9 @@ try_get_aucpr <- function(predictions, true_vals) {
   )$auc.davis.goadrich
 }
 
-# p is predicted probability and y is the observed event (0/1). This would be usually applied on a test set.
-## understanding of outputs:
-##  original.intercept   -> this is what they call  the "intercept" in rms::val.prob plot
-##  calmodel.intercept   -> this is what we get from fitting a glm on the offset
+#' @param p is predicted probability and y is the observed event (0/1). This would be usually applied on a test set.
+#' @return original.intercept   -> this is what they call  the "intercept" in rms::val.prob plot
+#' @return calmodel.intercept   -> this is what we get from fitting a glm on the offset
 cox.recalibration <- function(p, y, use_logits_in_glms = T, verbose = T) {
   if(!verbose) try_log_debug = function(...) {}
   # Preprocess
@@ -83,11 +82,20 @@ cox.recalibration <- function(p, y, use_logits_in_glms = T, verbose = T) {
     if(use_logits_in_glms)
       x
     else
-      inv.logit(x)
+      boot::inv.logit(x)
   }
-  # make decile groups
-
-  if(len(table(quantile(p,(1:9)/10))) < 9){
+  # make decile groups / or nonile groups / or octile groups
+  grouped_succesfully = F
+  for(grouping_number in 9:7) {
+    if(len(table(quantile(p,(1:grouping_number)/(grouping_number+1) ) )) < grouping_number){
+      next
+    }
+    else{
+      group <- cut(p, c(-Inf, quantile(p,(1:grouping_number)/(grouping_number+1)), Inf))
+      grouped_succesfully = T
+    }
+  }
+  if(!grouped_succesfully){
     try_log_warn(0, "@cox.recalibration- Can not calculate calibration - non-unique breaks in quantiles!")
     return( list(inter= NULL,
                  ci.inter= NULL,
@@ -103,7 +111,7 @@ cox.recalibration <- function(p, y, use_logits_in_glms = T, verbose = T) {
                  cal.nogroups =  NULL,
                  p.value.groups= NULL))
   }
-  group <- cut(p, c(-Inf, quantile(p,(1:9)/10), Inf))
+
 
   # Coarse view
   try_log_debug(0, cat("Total events: ", sum(y), "total predictions: ", round(sum(p)), "\n"))
@@ -165,23 +173,35 @@ cox.recalibration <- function(p, y, use_logits_in_glms = T, verbose = T) {
 # aliasing
 try_get_calibration <- cox.recalibration
 
+try_get_spread_metric <- function(preds, outs) {
+  # Calculate the average predicted probability
+  avg_prob <- mean(preds)
+
+  # Calculate the spread metric
+  spread <- sum((preds - avg_prob)^2) / length(preds)
+
+  return(spread)
+}
+
 ## plot metrics
 # @replace - only applicable when smoothed = F
 plot_calibration_graph <- function(preds, outcomes, excluded_percentiles = c(0,100), title = "", smoothed = T, df = 4, replace = T,
-                                   shade_col = "lightyellow", shade_density = NULL, line_par = list(col = "black"),
-                                   rug_par = list(side = 1), xlim = "auto", y_lim  = NULL, add_quantiles_and_mean_text = T) {
+                                   shade_col = "lightyellow3", shade_density = 50, line_par = list(col = "black", lwd=4),
+                                   rug_par = list(side = 1), xlim = "auto", y_lim  = NULL, add_quantiles_and_mean_text = T,
+                                   with_quantile_bars = T) {
   if(smoothed) # deprecared
     return(PRIVATE_plot_smooth_calibration_graph_loess(preds, outcomes, excluded_percentiles, title))
   return(PRIVATE_plot_calibration_graph_gbm(preds, outcomes, excluded_percentiles, title, df = df, replace =  replace,
                                             shade_col = shade_col, shade_density = shade_density, line_par = line_par, rug_par = rug_par,
-                                            xlim = xlim, y_lim  = y_lim, add_quantiles_and_mean_text = add_quantiles_and_mean_text))
+                                            xlim = xlim, y_lim  = y_lim, add_quantiles_and_mean_text = add_quantiles_and_mean_text,
+                                            with_quantile_bars =  with_quantile_bars))
 
 }
 
 PRIVATE_plot_calibration_graph_gbm <- function(preds, outcomes, excluded_percentiles = c(0,100), title = "",
-                                               df = 6, replace = T, shade_col = "lightyellow", shade_density = NULL,
-                                               line_par = list(col = "black"), rug_par = list(side = 1),
-                                               xlim = "auto", y_lim = NULL, add_quantiles_and_mean_text = T) {
+                                               df = 6, replace = T, shade_col = NULL, shade_density = NULL,
+                                               line_par = NULL, rug_par = list(side = 1),
+                                               xlim = "auto", y_lim = NULL, add_quantiles_and_mean_text = T, with_quantile_bars = T) {
   c_plot = NULL
   c_df <- as.data.frame(list(preds = preds, outs = outcomes))
   c_df = c_df[order(c_df$preds),]
@@ -191,13 +211,14 @@ PRIVATE_plot_calibration_graph_gbm <- function(preds, outcomes, excluded_percent
   c_df =  c_df[(n_obs*excl_percentile_lower/100 + 1):(n_obs*excl_percentile_upper/100), ]
   tryCatch(
     {
-      xlim = if(xlim == "auto") c(0,max(c_df$preds)*2) else xlim
+      xlim = if(len(xlim) == 1 && xlim == "auto") c(0,max(c_df$preds)*1.25) else xlim
       y_lim = if(is.null(y_lim)) xlim else y_lim
 
       calibrate.plot(y = c_df$outs, p = c_df$preds,
                           xlab = "Predicted value", main = title, xlim = xlim, ylim = y_lim,
                           knots = NULL, df =df, replace = replace, shade.col = shade_col, shade.density = shade_density,
-                          line.par = line_par, rug.par = rug_par, add_quantiles_and_mean_text = add_quantiles_and_mean_text)
+                          line.par = line_par, rug.par = rug_par, add_quantiles_and_mean_text = add_quantiles_and_mean_text,
+                          with_quantile_bars = with_quantile_bars)
     },error=function(cond){
       try_log_error(0,"@plot_calibration_graph - failed to plot calibration graph") # this usually happens when your preds are really not well calibrated
     }
@@ -308,7 +329,6 @@ plot_LCO_cali_grid <- function(logfile_prefix = "", model_type = "lr", excluded_
   plot_cali_grid()
 }
 
-#################################################
 
 ########################################################
 plot_perf_metrics <- function(predicted_probs, actual_outcomes, fold_cntr = 0, output_path = "out/tmp",

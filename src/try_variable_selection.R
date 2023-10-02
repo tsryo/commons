@@ -1,9 +1,8 @@
 # Author: T.Y.
 # Date created: 19.10.2021
 # Script contents:
-### 7 -> perform backwards step-wise elimination based on AIC on each of the
 
-### STEP 7
+# Specifically backwards-AIC var selection
 
 create_formula_allvars <- function(df1) {
   create_formula_somevars(df1)
@@ -105,7 +104,6 @@ fix_naming_issue_in_step_output <- function(sout, valid_col_nms) {
 }
 
 
-## step 7 - backwards AIC
 perform_backwards_AIC <- function(df1, out_var = "outcome_of_interest", return_step_out = F, n_steps = NULL) {
 
   vars_to_remove <- unlist(map(cns(df1), function(cn){

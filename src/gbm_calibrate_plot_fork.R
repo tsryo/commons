@@ -1,3 +1,5 @@
+# Extended  gbm calibrate plot to allow overlaying of multiple calibration graphs + more custom aesthetics
+
 #' Quantile rug plot
 #'
 #' Marks the quantiles on the axes of the current plot.
@@ -104,8 +106,9 @@ quantile.rug <- function(x, prob = 0:10/10, col ="black", ...) {
 #' #p <- predict(glm1,type="response")
 #' #calibrate.plot(y, p, xlim=c(0,0.6), ylim=c(0,0.6))
 calibrate.plot <- function(y, p, distribution = "bernoulli", replace = TRUE,
-                           line.par = list(col = "black", lwd = 1),
+                           line.par = list(col = "black", lwd = 1, lty =1),
                            shade.col = "lightyellow",
+                           with_quantile_bars = T,
                            shade.density = NULL, rug.par = list(side = 1, col = "black"),
                            xlab = "Predicted value", ylab = "Observed average",
                            xlim = NULL, ylim = NULL, knots = NULL, df = 6,
@@ -176,17 +179,30 @@ calibrate.plot <- function(y, p, distribution = "bernoulli", replace = TRUE,
     }
   }
 
+
+
   # Construct plot
   if(replace) {
+
+    plot(0, 0, type = "n", xlab = xlab, ylab = ylab, xlim = xlim, ylim = ylim,
+         ...)
+    # add grey background
+    rect(par('usr')[1], par('usr')[3], par('usr')[2], par('usr')[4], col ='#ebebeb')
+    # add gridlines
+    grid(nx = NULL, ny = NULL, lty = 5, col ='white', lwd = 2)
+    par(new = T)
     plot(0, 0, type = "n", xlab = xlab, ylab = ylab, xlim = xlim, ylim = ylim,
          ...)
   }
+  if(replace)
+    abline(0, 1, col = "red", lwd = 2)
   if(!is.na(shade.col)) {
     polygon(c(x, rev(x), x[1L]), c(se.lower, rev(se.upper), se.lower[1L]),
             col = shade.col, border = NA, density = shade.density) #
   }
-  lines(x, yy$fit, col = line.par$col, lwd = line.par$lwd)
-  quantile.rug(p, side = rug.par$side, col = rug.par$col, prob= seq(0,1, 0.05))
+  lines(x, yy$fit, col = line.par$col, lwd = line.par$lwd, lty = line.par$lty)
+  if(with_quantile_bars)
+    quantile.rug(p, side = rug.par$side, col = rug.par$col, prob= seq(0,1, 0.05))
   # abline(v = 0.1, col = "orange")
   # abline(v = 0.036, col = "darkgreen")
 
@@ -220,6 +236,6 @@ calibrate.plot <- function(y, p, distribution = "bernoulli", replace = TRUE,
     text(t_x, t_y+0.008, sprintf("N quantiles after 0.03 = %d", len(which(quantile(p, prob= seq(0,1, 0.05)) >= 0.03) )),
          cex=0.65, pos=3,col="black")
   }
-  abline(0, 1, col = "red")
+
 
 }

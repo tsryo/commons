@@ -26,13 +26,23 @@ get_imputed_dfs_list <- function(df1, n_copies) {
   return(imputed_dfs_list)
 }
 
-impute_n_copies <- function(df1, n_copies = N_IMPUTED_DATASETS){
-  imputed_dfs <- mice::mice(df1, m = n_copies, meth="pmm", seed = random.seed,  maxit = 5 , printFlag = F)
+impute_n_copies <- function(df1, n_copies = N_IMPUTED_DATASETS, is_test_set = F){
+  imputed_dfs = NULL
+  imputed_dfs <- tryCatch( {
+    mice::mice(df1, m = n_copies, meth="pmm", seed = random.seed,  maxit = 5 , printFlag = F)
+  },
+  error = function(e){
+    try_log_error("@impute_n_copies mice::mice - failed, going to skip current dataset...")
+  },
+  finally = {})
+  if(len(imputed_dfs) == 0){
+    return(NULL)
+  }
   imputed_dfs_list <- map(1:n_copies, function(x) {mice::complete(imputed_dfs, x)})
 
   nas_present_after_mice <- are_NAs_present_df_list(imputed_dfs_list)
-  if(nas_present_after_mice)
-    try_log_error(0,"@impute_n_copies-s NAS PRESENT AFTER IMPUTING (with mice)!  **** ")
+  # if(nas_present_after_mice)
+  #   try_log_warn(0,"@impute_n_copies-s NAS PRESENT AFTER IMPUTING (with mice)!  **** ")
 
   nas_present <- nas_present_after_mice
   try_imp_cntr <- 0
@@ -40,17 +50,27 @@ impute_n_copies <- function(df1, n_copies = N_IMPUTED_DATASETS){
   while(nas_present && try_imp_cntr < 3) {
     unimputable_columns = print_NAs_and_counts_df(imputed_dfs_list[[1]])
     try_imp_cntr <- try_imp_cntr + 1
-    try_log_debug("@impute_n_copies- trying to impute hard columns.. **** -> try_imp_cntr = %d", try_imp_cntr)
-    if(try_imp_cntr > 1)
-      try_log_warn("@impute_n_copies- trying to impute hard columns. try_imp_cntr greater than 1")
+    # try_log_debug("@impute_n_copies- trying to impute hard columns.. **** -> try_imp_cntr = %d", try_imp_cntr)
+    # if(try_imp_cntr > 1)
+    #   try_log_warn("@impute_n_copies- trying to impute hard columns. try_imp_cntr greater than 1")
     imputed_dfs_list <- try_impute_hard_columns_list(imputed_dfs_list)
     nas_present <- are_NAs_present_df_list(imputed_dfs_list)
   }
-  if(len(unimputable_columns) > 0) {
-    try_log_error("@impute_n_copies- *NAS PRESENT AFTER MICE AND COULD NOT BE FIXED!! Removing columns: \n\t\t-> : [ %s ]; <- ****",
-                  paste(unimputable_columns, collapse = ","))
+  if(nas_present) {
+    # try_log_error("@impute_n_copies- *NAS PRESENT AFTER MICE AND COULD NOT BE FIXED!! Removing columns: \n\t\t-> : [ %s ]; <- ****",
+    #               paste(unimputable_columns, collapse = ","))
     imputed_dfs_list = map(1:len(imputed_dfs_list), function(x) {
       imputed_dfs_list[[x]] = imputed_dfs_list[[x]][,-which(cns(imputed_dfs_list[[1]]) %in% unimputable_columns)]})
+
+    # TODO make it set to mean rather than removing! what about those with just 1 repeating value?
+    # imputed_dfs_list = map(1:len(imputed_dfs_list), function(x) {
+    #   c_df = imputed_dfs_list[[x]]
+    #   for(c_col in unimputable_columns){ # c_col  = unimputable_columns[1]
+    #     c_na_rows = which(is.na(c_df[,c_col]))
+    #
+    #   }
+    #   # imputed_dfs_list[[x]][,which(cns(imputed_dfs_list[[1]]) %in% unimputable_columns)] = imputed_dfs_list[[x]]
+    #   })
   }
   imputed_dfs_list
 }

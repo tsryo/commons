@@ -6,6 +6,7 @@ load_with_assign <- function(fp){
   return(eval(parse(text=load(fp))))
 }
 
+# TODO: fix bug where file extension is lost when filename has . in its name
 save_incremental_name <- function(objToSave, saveFilepath) {
   pathElems = unlist(stringr::str_split(saveFilepath,  "/"))
   fn1 = pathElems[len(pathElems)]
@@ -23,10 +24,9 @@ save_incremental_name <- function(objToSave, saveFilepath) {
 }
 
 # @results_type - oneof(LCO, 10CV)
-load_model_predictions_and_outcomes <- function(sink_prefix = "proba11", model_type = "lr", results_type = "LCO",
+load_model_predictions_and_outcomes <- function(sink_prefix = "", model_type = "lr", results_type = "LCO",
                                                 excluding_final_model_10CV = T, load_train_results_also = F,
                                                 root_dir = getwd()) {
-  root_dir = "G:/divjk/kik/NHR-Onderzoek/Abu Hanna/R scripts(TY)/PhD/SRP-rewrite"
   fn_template_map = list("LCO" = SAVED_FILENAME_TEMPLATES$results_list$lco,
                          "10CV" = SAVED_FILENAME_TEMPLATES$results_list$kfoldcv)
   m_res = load_with_assign(paste0(root_dir, "/out/",sprintf(fn_template_map[[results_type]], sink_prefix, model_type)))
@@ -44,7 +44,7 @@ load_model_predictions_and_outcomes <- function(sink_prefix = "proba11", model_t
 }
 
 
-load_train_and_test_dfs <- function(sink_prefix = "proba11", folds = 1:CV_N_FOLDS, root_dir = getwd()) {
+load_train_and_test_dfs <- function(sink_prefix = "", folds = 1:CV_N_FOLDS, root_dir = getwd()) {
   train_dfs <- list()
   test_dfs <- list()
   for(c_fold in folds){

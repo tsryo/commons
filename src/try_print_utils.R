@@ -6,15 +6,22 @@ get_current_date_printable <- function(){
   format(Sys.time(),"%b %d %X %Y")
 }
 
+get_current_datetime_filename_formatted <- function () {
+  format(Sys.time(), "%b-%d-%H:%M")
+}
+
 ###### LOG functions
-try_log <- function(severity, format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = "") {
+try_log <- function(severity, format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = "", p8 = "") {
   if(which(LOGGING_SEVERITIES == severity) < which(LOGGING_SEVERITIES == logging.level))
     return()
   format_str = if(class(format_str) == "numeric" && format_str <= 0) "%s" else format_str
 
   cur_filepath = rstudioapi::getActiveDocumentContext()$path
-  cur_filename = tail(strsplit(cur_filepath, "/")[[1]], n = 1)
-  cur_filename = if(len(cur_filename) == 0) "CONSOLE" else cur_filename
+  cur_filename = "CONSOLE"
+  if(len(cur_filepath) != 0 && strlen(cur_filepath) != 0) {
+    cur_filename = tail(strsplit(cur_filepath, "/")[[1]], n = 1)
+    cur_filename = if(len(cur_filename) == 0) "CONSOLE" else cur_filename
+  }
   cur_date = get_current_date_printable()
 
   format_str = sprintf("[%s] |%s| [%s] %s", severity, cur_date, cur_filename, format_str)
@@ -34,28 +41,28 @@ try_log <- function(severity, format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5
   eval(parse(text = eval_str))
 }
 
-try_log_trace <- function(format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = ""){
-  try_log(severity = "TRACE", format_str, p1, p2, p3, p4, p5, p6, p7)
+try_log_trace <- function(format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = "", p8 = ""){
+  try_log(severity = "TRACE", format_str, p1, p2, p3, p4, p5, p6, p7, p8)
 }
 
-try_log_debug <- function(format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = ""){
-  try_log(severity = "DEBUG", format_str, p1, p2, p3, p4, p5, p6, p7)
+try_log_debug <- function(format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = "", p8 = ""){
+  try_log(severity = "DEBUG", format_str, p1, p2, p3, p4, p5, p6, p7, p8)
 }
 
-try_log_info <- function(format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = ""){
-  try_log(severity = "INFO", format_str, p1, p2, p3, p4, p5, p6, p7)
+try_log_info <- function(format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = "", p8 = ""){
+  try_log(severity = "INFO", format_str, p1, p2, p3, p4, p5, p6, p7, p8)
 }
 
-try_log_warn <- function(format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = ""){
-  try_log(severity = "WARN", format_str, p1, p2, p3, p4, p5, p6, p7)
+try_log_warn <- function(format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = "", p8 = ""){
+  try_log(severity = "WARN", format_str, p1, p2, p3, p4, p5, p6, p7, p8)
 }
 
-try_log_error <- function(format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = ""){
-  try_log(severity = "ERROR", format_str, p1, p2, p3, p4, p5, p6, p7)
+try_log_error <- function(format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = "", p8 = ""){
+  try_log(severity = "ERROR", format_str, p1, p2, p3, p4, p5, p6, p7, p8)
 }
 
-try_log_crit <- function(format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = ""){
-  try_log(severity = "CRITICAL", format_str, p1, p2, p3, p4, p5, p6, p7)
+try_log_crit <- function(format_str, p1 = "", p2 = "", p3 = "", p4 = "", p5 = "", p6= "", p7 = "", p8 = ""){
+  try_log(severity = "CRITICAL", format_str, p1, p2, p3, p4, p5, p6, p7, p8)
 }
 
 start_logging_to_file <- function(logfile_prefix){
@@ -78,13 +85,15 @@ print_df_with_rounded_numbers <- function(df1, round_to = 2) {
   df1
 }
 
-print_NAs_and_counts_df <- function(df1) {
+print_NAs_and_counts_df <- function(df1, silent = T) {
   offending_columns = c()
   for(i in cns(df1)) {
     na_count = tail(table(df1[,i], useNA = "always"), n = 1)
     if(na_count > 0) {
-      try_log_warn(0, i)
-      try_log_warn(0, na_count)
+      if(!silent) {
+        try_log_warn(0, i)
+        try_log_warn(0, na_count)
+      }
       offending_columns = c(offending_columns, i)
     }
   }

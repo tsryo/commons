@@ -48,13 +48,30 @@ get_prevalence <- function(x) { howmany(x == 1) / len(x)}
 # z = 1.96
 # c_mean + z*sd = ci_upper
 # sd = (ci_upper -  c_mean)/z
-get_sd_from_ci95 <- function(ci_lower, ci_upper) {
+get_sd_from_ci95 <- function(ci_lower, ci_upper, volume = NA) {
+  if(len(volume) == 0 || is.na(volume)){
+    try_log_error("Calling get_sd_from_ci95 without volume! break")
+    quit(-1)
+  }
   c_mean = (ci_lower + ci_upper)/2
-  c_sd = (ci_upper - c_mean)/1.96
+  c_sd = ((ci_upper - c_mean)/(1.96))*sqrt(volume)
   return(c_sd)
 }
 
+get_ci_95_from_mean_and_sd <- function(c_mean, c_sd, volume) {
+  return(c(c_mean - (c_sd/sqrt(volume))*1.96,
+           c_mean + (c_sd/sqrt(volume))*1.96))
+}
+
 ###
+# save yourself some typing
+try_table <- function(x) {
+  return(table(x,useNA = 'always'))
+}
+
+try_hist <- function(x) {
+  return(hist(x, breaks = 1000))
+}
 
 logit2prob <- function(v1){ gtools::inv.logit(v1) }
 prob2logit <- function(v1) {
@@ -302,39 +319,6 @@ try_factorize_col <- function(c_v, cateogries_grouping = list()){
 }
 
 
-
-try_factorize_df_new <- function(df1, only_bin = F) {
-  tmp = try_print_class_for_each_column_df(df1, quiet = T)
-  should_be_categorical_vars = tmp$should_be_categoricals
-  should_be_bin_vars = tmp$should_be_binaries
-
-
-  for(bin_var in should_be_bin_vars) {
-    c_v = df1[,bin_var]
-    df1[,bin_var] =  try_factorize_col(c_v)
-  }
-  if(!only_bin) {
-
-    should_be_categorical_vars
-    cat_vars_groupings = list(diabetes = list(DM_n = c(0), DM_y = c(1,2,10,20,30,90)),
-                              NYHA = list(),
-                              urgentie = list(elective = c(10), urgent = c(20), emergency = c(30,40)),
-                              TAVI_toegang = list(other_none = c(0,90), transfemoral = c(10,11,12), subclavian = c(15), transapical = c(25), direct_aortic = c(30)),
-                              interv_gewicht = list(other = c(10,11,30), two_operations = c(20)),
-                              centrum = list(),
-                              jaar = list()
-    )
-
-    for(i in 1:len(cat_vars_groupings)){
-      cat_var = names(cat_vars_groupings)[i]
-      cat_var_grouping = cat_vars_groupings[[i]]
-      c_v = df1[,cat_var]
-
-      df1[,cat_var] = try_factorize_col(c_v, cat_var_grouping)
-    }
-  }
-  return(df1)
-}
 ########## Functions used for k-fold CV  ##########
 
 last <- function(x) {return(x[len(x)])}
@@ -396,11 +380,12 @@ get_imputed_dfs_train_and_test <- function(cur_df_train, cur_df_test, logfile_pr
 }
 
 # stratified by outcome only
-create_kfolds <- function(df1, n_folds = CV_N_FOLDS, override.excluded.predictors = NULL, verbose = T) {
+create_kfolds <- function(df1, n_folds = CV_N_FOLDS, override.excluded.predictors = NULL, verbose = T, add_final_fold = T) {
   folds <- splitTools::create_folds(df1$outcome_of_interest, k = n_folds, type = "stratified")
   train_dfs <- list()
   test_dfs <- list()
   cntr = 0
+  df1 = remove_excluded_predictors(df1, override.excluded.predictors = override.excluded.predictors, verbose = verbose)
   for(cur_fold in folds){
     cntr = cntr + 1
     cur_tt <- get_test_train_df_for_fold(cur_fold, df1)
@@ -408,20 +393,25 @@ create_kfolds <- function(df1, n_folds = CV_N_FOLDS, override.excluded.predictor
     test_dfs[[cntr]] = remove_excluded_predictors(cur_tt$test, override.excluded.predictors = override.excluded.predictors, verbose = verbose)
 
   }
-
+  # add one last fold with all data in training - to generate final model
+  if(add_final_fold) {
+    train_dfs[[len(train_dfs)+1]] = df1
+    test_dfs[[len(test_dfs)+1]] = df1
+  }
   return(list(folds = folds, train_dfs =  train_dfs, test_dfs = test_dfs))
 }
 # stratified by outcome per center
 create_kfold_strat_center <- function(df1, n_folds = CV_N_FOLDS, override.excluded.predictors = NULL) {
   train_dfs <- list()
   test_dfs <- list()
+  df1 = remove_excluded_predictors(df1, override.excluded.predictors = override.excluded.predictors, verbose = F)
   #note: assume you dont use the folds - you may have to fix it in try_LCO.R l43 ande try_kfold_cv l19
   par_df = partition_df_from_pipeline(df1)
   for(i in names(par_df)) {
     c_train_dfs = list()
     c_test_dfs = list()
     c_df = par_df[[i]]
-    tmp = create_kfolds(c_df, n_folds = n_folds, override.excluded.predictors, verbose = F)
+    tmp = create_kfolds(c_df, n_folds = n_folds, override.excluded.predictors, verbose = F, add_final_fold = F)
     counter = 1
     for(cur_fold in tmp$folds) {
       cur_tt <- get_test_train_df_for_fold(cur_fold, c_df)
@@ -444,8 +434,34 @@ create_kfold_strat_center <- function(df1, n_folds = CV_N_FOLDS, override.exclud
     }
 
   }
+
+  # add one last fold with all data in training - to generate final model
+  train_dfs[[len(train_dfs)+1]] = df1
+  test_dfs[[len(test_dfs)+1]] = df1
+  return(list(folds = NULL, train_dfs = train_dfs, test_dfs = test_dfs))
+}
+
+
+# train/test pairs
+#' @param UOF_VN - unit of federation varname
+create_folds_lcoa <- function(df1, n_folds = -1, override.excluded.predictors = NULL, UOF_VN = "centrum") {
+  train_dfs <- list()
+  test_dfs <- list()
+  center_numeric = as.numeric(levels(df1[, UOF_VN]))[df1[, UOF_VN]]
+  fake_center = max(center_numeric)+1 # for final model training on all data
+  for(i in c(sort(uniq(center_numeric)), fake_center )) {
+    c_train_df = df1
+    c_test_df = df1
+    if(i != fake_center) {
+      c_train_df = df1[df1[, UOF_VN] != i,]
+      c_test_df = df1[df1[, UOF_VN] == i,]
+    }
+    train_dfs[[i]] = remove_excluded_predictors(c_train_df, override.excluded.predictors = override.excluded.predictors, verbose = F)
+    test_dfs[[i]] = remove_excluded_predictors(c_test_df, override.excluded.predictors = override.excluded.predictors, verbose = F)
+  }
   # this is doing it [center][fold] , you want it to become [fold]
   # solution - when it does it for a given center i, you add to each fold those rows
+
   return(list(folds = NULL, train_dfs = train_dfs, test_dfs = test_dfs))
 }
 

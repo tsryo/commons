@@ -11,7 +11,7 @@ derive_model_multi_imputation <- function(cur_df_train, cur_df_test, vselc_bs_ag
 
 # Logic functions
 
-# @vselc_bs_agree_stren =  AIC between-set agreement strength (1.0 = vars appearing in 5/5 sets (intersect), 0.4 = vars appearing in 2/5 sets, 0.0 = appearing in at least 1/5 sets (union))
+#' @param vselc_bs_agree_stren =  AIC between-set agreement strength (1.0 = vars appearing in 5/5 sets (intersect), 0.4 = vars appearing in 2/5 sets, 0.0 = appearing in at least 1/5 sets (union))
 PRIVATE__derive_model_multi_imputation <- function(cur_df_train, cur_df_test, vselc_bs_agree_stren = 1.0,
                                                 logfile_prefix = "", cur_fold = -1) {
   imputed_dfs = get_imputed_dfs_train_and_test(cur_df_train, cur_df_test, logfile_prefix=logfile_prefix, cur_fold=cur_fold)

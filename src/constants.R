@@ -2,7 +2,6 @@
 # Date: 15.10.2021
 
 
-CV_N_FOLDS = 10
 
 ##### ALIASES
 len = length
@@ -13,12 +12,7 @@ beep = function() { beepr::beep(11) }
 
 ######## Operational constants
 DIR_ROOT = getwd()
-DIR_OUT = "out"
-DIR_SAVES = "saved_states"
-DIR_LOG = "logs"
-DIR_SRC = "src"
 LOGGING_SEVERITIES <- c("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL")
-
 
 SAVED_FILENAME_TEMPLATES = list( vars_selected = "AIC-vars-%s-fold-%d.RData",
                                  model = "model-%s-fold_%d-%s.RData",

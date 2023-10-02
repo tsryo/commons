@@ -2,7 +2,7 @@
 # Date: 15.10.2021
 
 
-setwd(sprintf("%s/..",dirname(rstudioapi::getActiveDocumentContext()$path)))
+# setwd(sprintf("%s/..",dirname(rstudioapi::getActiveDocumentContext()$path)))
 print(getwd())
 if(length(unlist(strsplit(getwd(), split = "/"))) < 6)
   stop(-1)
