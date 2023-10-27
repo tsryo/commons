@@ -1,2 +1,2 @@
 # commons
-COmmon sources between all repos
+Common sources between all repos
