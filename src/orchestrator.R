@@ -4,8 +4,6 @@
 
 # setwd(sprintf("%s/..",dirname(rstudioapi::getActiveDocumentContext()$path)))
 print(getwd())
-if(length(unlist(strsplit(getwd(), split = "/"))) < 6)
-  stop(-1)
 
 # read & set flags from properties file
 FLAGS_FILE = "flags.properties"
@@ -18,7 +16,8 @@ excluded.predictors = unlist(strsplit(excluded.predictors, ","))
 random.seed = as.numeric(random.seed)
 
 set.seed(random.seed)
-
+# so that loading works when sourcing commons from other projects
+# Must have commons project on same dir as other projects that call on commons
 source("../commons/src/constants.R")
 source("../commons/src/gbm_calibrate_plot_fork.R")
 source("../commons/src/try_functional_utils.R")

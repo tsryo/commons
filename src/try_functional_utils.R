@@ -49,7 +49,7 @@ get_prevalence <- function(x) { howmany(x == 1) / len(x)}
 # c_mean + z*sd = ci_upper
 # sd = (ci_upper -  c_mean)/z
 get_sd_from_ci95 <- function(ci_lower, ci_upper, volume = NA) {
-  if(len(volume) == 0 || is.na(volume)){
+  if(len(volume) == 0 || any(is.na(volume))){
     try_log_error("Calling get_sd_from_ci95 without volume! break")
     quit(-1)
   }
