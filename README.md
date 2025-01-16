@@ -1,2 +1,2 @@
 # commons
-Common sources between all repos
+Utility package for all R projects
